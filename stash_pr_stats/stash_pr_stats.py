@@ -75,7 +75,7 @@ def get_monthly_merged(user, url, accesstoken, projectkey, pickled=False):
     for key in total_merged:
         monthly_merged[key[:7]] += total_merged[key]
 
-    return monthly_merged
+    return total_open, sum(total_merged.values()), monthly_merged
 
 
 @click.command()
@@ -95,10 +95,12 @@ def main(url, searchuser, accesstoken, projectkey, pickled):
     """Cli entry point"""
 
     user_stats = {}
+    user_sum_stats = {}
     all_months = Counter()
     for user in searchuser:
-        monthly_merged = get_monthly_merged(user, url, accesstoken, projectkey, pickled)
+        user_open, user_merged, monthly_merged = get_monthly_merged(user, url, accesstoken, projectkey, pickled)
         user_stats[user] = dict(monthly_merged)
+        user_sum_stats[user] = {"open": user_open, "merged": user_merged}
         all_months += monthly_merged
 
     list_of_months = sorted(all_months)
@@ -113,12 +115,12 @@ def main(url, searchuser, accesstoken, projectkey, pickled):
             (key, user_stats[user][key]) for key in sorted(user_stats[user])
         ]
 
-    line_chart = pygal.Line(x_label_rotation=-90)
+    line_chart = pygal.Line(x_label_rotation=-90, legend_at_bottom=True)
     line_chart.title = "Monthly PR merges"
     line_chart.x_labels = list_of_months
 
     for user in sorted(user_stats_lists):
-        line_chart.add(user, [x[1] for x in user_stats_lists[user]])
+        line_chart.add("{} - {}".format(user, user_sum_stats[user]["merged"]), [x[1] for x in user_stats_lists[user]])
 
     line_chart.render_to_file("pr-stats.svg")
 
