@@ -2,31 +2,81 @@
 Cli for fetching pr stats for Bitbucket Server.
 """
 from __future__ import print_function
-import click
-import stashy
 from collections import Counter
 from datetime import date
+import os
+import pickle
+import tqdm
+import click
+import stashy
+import pygal
+
 
 def get_prs(url, searchuser, accesstoken, projectkey):
     """Fetch the PR data for this user"""
+    click.echo(
+        click.style(
+            "Fetching repos for {}...".format(searchuser),
+            fg="bright_magenta",
+            bold=True,
+        )
+    )
     repos = {}
     stash = stashy.client.Stash(base_url=url, token=accesstoken)
-    for repo in stash.projects["FW"].repos:
+    for repo in tqdm.tqdm(list(stash.projects[projectkey].repos)):
         prs_open = 0
         pr_merged_dates = Counter()
-        prs = stash.projects["FW"].repos[repo["slug"]].pull_requests
+        prs = stash.projects[projectkey].repos[repo["slug"]].pull_requests
         prs_open += len(list(prs.all(author=searchuser)))
 
-        for pr in prs.all(state="MERGED", author=searchuser):
-            prtime = date.fromtimestamp(pr["updatedDate"]/1000).isoformat()
+        for pull_request in prs.all(state="MERGED", author=searchuser):
+            prtime = date.fromtimestamp(pull_request["updatedDate"] / 1000).isoformat()
             pr_merged_dates[prtime] += 1
 
-        repos[repo["slug"]] = {"open": prs_open, "merged": pr_merged_dates}
+        if prs_open > 0 or pr_merged_dates:
+            repos[repo["slug"]] = {"open": prs_open, "merged": pr_merged_dates}
 
     return repos
 
 
-import pickle
+def get_monthly_merged(user, url, accesstoken, projectkey, pickled=False):
+    """Retrieve montly merged stats for one user"""
+    picklefilename = "{}.pickle".format(user)
+
+    # if pickle is enabled attempt to load data first
+    if pickled and os.path.isfile(picklefilename):
+        with open(picklefilename, "rb") as picklefile:
+            repos = pickle.load(picklefile)
+    else:
+        repos = get_prs(url, user, accesstoken, projectkey)
+        with open(picklefilename, "w") as picklefile:
+            pickle.dump(repos, picklefile)
+
+    # consolidate data from each repo
+    total_open = 0
+    total_merged = Counter()
+    for repo in repos.iterkeys():
+        total_open += repos[repo]["open"]
+        total_merged += repos[repo]["merged"]
+
+        # Print out this repos data
+        # print("merged: {}".format(sum(repos[repo]["merged"].values())))
+        # print("open: {}".format(repos[repo]["open"]))
+        # print("repo: {}".format(repo))
+        # for key in sorted(repos[repo]["merged"].iterkeys()):
+        #     print("{} : {}".format(key, repos[repo]["merged"][key]))
+    click.echo(click.style("{} open: {}".format(user, total_open), bold=True))
+    click.echo(
+        click.style("{} merged: {}".format(user, sum(total_merged.values())), bold=True)
+    )
+
+    # plot data, binned by month
+    monthly_merged = Counter()
+    for key in total_merged:
+        monthly_merged[key[:7]] += total_merged[key]
+
+    return monthly_merged
+
 
 @click.command()
 @click.version_option()
@@ -36,24 +86,42 @@ import pickle
     prompt=True,
 )
 @click.option("--url", "-u", help="Bitbucket server base url", required=True)
-@click.option("--searchuser", "-s", help="User to search for stats", prompt=True)
-@click.option("--projectkey", "-p", help="Project key")
-def main(url, searchuser, accesstoken, projectkey="FW"):
+@click.option(
+    "--searchuser", "-s", help="Users to search for stats", prompt=True, multiple=True
+)
+@click.option("--projectkey", "-p", help="Project key", default="FW")
+@click.option("--pickled", "-i", help="Try to use pickled output", is_flag=True)
+def main(url, searchuser, accesstoken, projectkey, pickled):
     """Cli entry point"""
 
-    repos = get_prs(url, searchuser, accesstoken, projectkey)
-    # with open("npendleton.pickle", "w") as picklefile:
-    #     pickle.dump(repos, picklefile)
+    user_stats = {}
+    all_months = Counter()
+    for user in searchuser:
+        monthly_merged = get_monthly_merged(user, url, accesstoken, projectkey, pickled)
+        user_stats[user] = dict(monthly_merged)
+        all_months += monthly_merged
 
-    # with open("npendleton.pickle", "rb") as picklefile:
-    #     repos = pickle.load(picklefile)
+    list_of_months = sorted(all_months)
 
-    for repo in repos.iterkeys():
-        print("repo: {}".format(repo))
-        print("open: {}".format(repos[repo]["open"]))
-        print("merged: {}".format(sum(repos[repo]["merged"].values())))
-        for key in sorted(repos[repo]["merged"].iterkeys()):
-            print("{} : {}".format(key, repos[repo]["merged"][key]))
+    # add empty entries for user months with no merges
+    user_stats_lists = {}
+    for user in user_stats:
+        empty_months = dict.fromkeys(list_of_months, None)
+        empty_months.update(user_stats[user])
+        user_stats[user] = empty_months
+        user_stats_lists[user] = [
+            (key, user_stats[user][key]) for key in sorted(user_stats[user])
+        ]
+
+    line_chart = pygal.Line(x_label_rotation=-90)
+    line_chart.title = "Monthly PR merges"
+    line_chart.x_labels = list_of_months
+
+    for user in sorted(user_stats_lists):
+        line_chart.add(user, [x[1] for x in user_stats_lists[user]])
+
+    line_chart.render_to_file("pr-stats.svg")
+
 
 if __name__ == "__main__":
     main()  # pylint: disable=no-value-for-parameter
