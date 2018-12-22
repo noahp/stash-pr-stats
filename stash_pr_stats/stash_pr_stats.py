@@ -13,6 +13,7 @@ import stashy
 import pygal
 import tabulate
 
+
 def get_prs(url, searchuser, accesstoken, projectkey):
     """Fetch the PR data for this user"""
     click.echo(
@@ -124,7 +125,10 @@ def make_chart(user_stats, all_months, user_sum_stats):
 @click.option("--projectkey", "-p", help="Project key", default="FW")
 @click.option("--pickled", "-i", help="Try to use pickled output", is_flag=True)
 def main(url, searchuser, accesstoken, projectkey, pickled):
-    """Cli entry point"""
+    """
+    Fetch bitbucket server (aka stash) pr stats for specified users and
+    output ascii summary + pygal chart
+    """
 
     user_stats = {}
     user_sum_stats = {}
@@ -140,7 +144,9 @@ def main(url, searchuser, accesstoken, projectkey, pickled):
     # summary table
     table_data = []
     for user in sorted(user_sum_stats):
-        table_data.append([user, user_sum_stats[user]["open"], user_sum_stats[user]["merged"]])
+        table_data.append(
+            [user, user_sum_stats[user]["open"], user_sum_stats[user]["merged"]]
+        )
 
     print(tabulate.tabulate(table_data, ["user", "open", "merged"], tablefmt="grid"))
 
