@@ -55,4 +55,10 @@ setup(
     # For scripts, this corrects shebang replacement, from:
     #  https://github.com/pybuilder/pybuilder/issues/168
     options={"build_scripts": {"executable": "/usr/bin/env python"}},
+    classifiers=[
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3.6",
+        "Operating System :: OS Independent",
+    ],
 )
