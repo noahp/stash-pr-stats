@@ -32,7 +32,7 @@ def get_long_description():
 
 setup(
     name="stash-pr-stats",
-    version="0.0.0",
+    version="0.0.1",
     description="Get pr stats from stash (bitbucket server)",
     author="Noah Pendleton",
     author_email="2538614+noahp@users.noreply.github.com",
