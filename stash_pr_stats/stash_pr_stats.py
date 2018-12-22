@@ -6,11 +6,12 @@ from collections import Counter
 from datetime import date
 import os
 import pickle
+import pathlib
 import tqdm
 import click
 import stashy
 import pygal
-
+import tabulate
 
 def get_prs(url, searchuser, accesstoken, projectkey):
     """Fetch the PR data for this user"""
@@ -55,7 +56,7 @@ def get_monthly_merged(user, url, accesstoken, projectkey, pickled=False):
     # consolidate data from each repo
     total_open = 0
     total_merged = Counter()
-    for repo in repos.iterkeys():
+    for repo in repos:
         total_open += repos[repo]["open"]
         total_merged += repos[repo]["merged"]
 
@@ -65,17 +66,48 @@ def get_monthly_merged(user, url, accesstoken, projectkey, pickled=False):
         # print("repo: {}".format(repo))
         # for key in sorted(repos[repo]["merged"].iterkeys()):
         #     print("{} : {}".format(key, repos[repo]["merged"][key]))
-    click.echo(click.style("{} open: {}".format(user, total_open), bold=True))
-    click.echo(
-        click.style("{} merged: {}".format(user, sum(total_merged.values())), bold=True)
-    )
 
-    # plot data, binned by month
+    # bucket up merged pr's by month
     monthly_merged = Counter()
     for key in total_merged:
         monthly_merged[key[:7]] += total_merged[key]
 
     return total_open, sum(total_merged.values()), monthly_merged
+
+
+def make_chart(user_stats, all_months, user_sum_stats):
+    """Produce a line chart of user stats"""
+    # add empty entries for user months with no merges
+    user_stats_lists = {}
+    for user in user_stats:
+        empty_months = dict.fromkeys(all_months, None)
+        empty_months.update(user_stats[user])
+        user_stats[user] = empty_months
+        user_stats_lists[user] = [
+            (key, user_stats[user][key]) for key in sorted(user_stats[user])
+        ]
+
+    line_chart = pygal.Line(x_label_rotation=-90, legend_at_bottom=True)
+    line_chart.title = "Monthly PR merges"
+    line_chart.x_labels = all_months
+
+    for user in sorted(user_stats_lists):
+        line_chart.add(
+            "{} - {}".format(user, user_sum_stats[user]["merged"]),
+            [x[1] for x in user_stats_lists[user]],
+        )
+
+    line_chart.render_to_file("pr-stats.svg")
+
+    click.echo(
+        click.style(
+            "Success! see output {}".format(
+                pathlib.Path(os.path.abspath("pr-stats.svg")).as_uri()
+            ),
+            fg="green",
+            bold=True,
+        )
+    )
 
 
 @click.command()
@@ -98,31 +130,21 @@ def main(url, searchuser, accesstoken, projectkey, pickled):
     user_sum_stats = {}
     all_months = Counter()
     for user in searchuser:
-        user_open, user_merged, monthly_merged = get_monthly_merged(user, url, accesstoken, projectkey, pickled)
+        user_open, user_merged, monthly_merged = get_monthly_merged(
+            user, url, accesstoken, projectkey, pickled
+        )
         user_stats[user] = dict(monthly_merged)
         user_sum_stats[user] = {"open": user_open, "merged": user_merged}
         all_months += monthly_merged
 
-    list_of_months = sorted(all_months)
+    # summary table
+    table_data = []
+    for user in sorted(user_sum_stats):
+        table_data.append([user, user_sum_stats[user]["open"], user_sum_stats[user]["merged"]])
 
-    # add empty entries for user months with no merges
-    user_stats_lists = {}
-    for user in user_stats:
-        empty_months = dict.fromkeys(list_of_months, None)
-        empty_months.update(user_stats[user])
-        user_stats[user] = empty_months
-        user_stats_lists[user] = [
-            (key, user_stats[user][key]) for key in sorted(user_stats[user])
-        ]
+    print(tabulate.tabulate(table_data, ["user", "open", "merged"], tablefmt="grid"))
 
-    line_chart = pygal.Line(x_label_rotation=-90, legend_at_bottom=True)
-    line_chart.title = "Monthly PR merges"
-    line_chart.x_labels = list_of_months
-
-    for user in sorted(user_stats_lists):
-        line_chart.add("{} - {}".format(user, user_sum_stats[user]["merged"]), [x[1] for x in user_stats_lists[user]])
-
-    line_chart.render_to_file("pr-stats.svg")
+    make_chart(user_stats, sorted(all_months), user_sum_stats)
 
 
 if __name__ == "__main__":
