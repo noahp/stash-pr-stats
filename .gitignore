@@ -4,3 +4,4 @@ dist/
 build/
 pr-stats.svg
 .tox
+*.pickle

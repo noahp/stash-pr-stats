@@ -7,6 +7,7 @@ from datetime import date
 import os
 import pickle
 import pathlib
+import sys
 import tqdm
 import click
 import stashy
@@ -14,23 +15,34 @@ import pygal
 import tabulate
 
 
+def print_bold(msg, color=None):
+    """Use click to print bold and colored"""
+    click.echo(click.style(msg, fg=color, bold=True))
+
+
 def get_prs(url, searchuser, accesstoken, projectkey):
     """Fetch the PR data for this user"""
-    click.echo(
-        click.style(
-            "Fetching repos for {}...".format(searchuser),
-            fg="bright_magenta",
-            bold=True,
-        )
-    )
+    print_bold("Fetching repos for {}...".format(searchuser), color="magenta")
+    # At the moment, this package depends on a fork of the stashy package. See:
+    # https://github.com/cosmin/stashy/issues/109
+    # https://github.com/cosmin/stashy/pull/111
+    stashy_package_error_help = """Whoops, might need to remove stashy, try:
+    pip uninstall stashy -y; pip install stash-pr-stats --upgrade"""
     repos = {}
-    stash = stashy.client.Stash(base_url=url, token=accesstoken)
+    try:
+        stash = stashy.client.Stash(base_url=url, token=accesstoken)
+    except TypeError:
+        print_bold(stashy_package_error_help, color="red")
+        sys.exit(-1)
     for repo in tqdm.tqdm(list(stash.projects[projectkey].repos)):
         prs_open = 0
         pr_merged_dates = Counter()
         prs = stash.projects[projectkey].repos[repo["slug"]].pull_requests
-        prs_open += len(list(prs.all(author=searchuser)))
-
+        try:
+            prs_open += len(list(prs.all(author=searchuser)))
+        except TypeError:
+            print_bold(stashy_package_error_help, color="red")
+            sys.exit(-1)
         for pull_request in prs.all(state="MERGED", author=searchuser):
             prtime = date.fromtimestamp(pull_request["updatedDate"] / 1000).isoformat()
             pr_merged_dates[prtime] += 1
