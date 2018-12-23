@@ -7,8 +7,9 @@ Prints PR stats summary (open + merged total) and generates an svg chart with
 monthly stats for selected users.
 
 # install
+Until #2 is resolved, install directly from github as follows:
 ```bash
-pip install stash-pr-stats
+pip install git+https://github.com/noahp/stash-pr-stats
 ```
 
 # example usage
