@@ -32,7 +32,7 @@ def get_long_description():
 
 setup(
     name="stash-pr-stats",
-    version="0.0.2",
+    version="0.0.3",
     description="Get pr stats from stash (bitbucket server)",
     author="Noah Pendleton",
     author_email="2538614+noahp@users.noreply.github.com",
@@ -44,7 +44,7 @@ setup(
     install_requires=[
         "click",
         "pygal",
-        # "stashy @ git+https://github.com/noahp/stashy.git@f42707cb87fe7a50f77d739b00494720062fd06e",
+        "stashy @ git+https://github.com/noahp/stashy.git@f42707cb87fe7a50f77d739b00494720062fd06e",
         "tabulate",
         "tqdm",
     ]
