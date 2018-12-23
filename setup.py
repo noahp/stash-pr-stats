@@ -44,7 +44,7 @@ setup(
     install_requires=[
         "click",
         "pygal",
-        "stashy @ git+https://github.com/noahp/stashy.git@f42707cb87fe7a50f77d739b00494720062fd06e",
+        # "stashy @ git+https://github.com/noahp/stashy.git@f42707cb87fe7a50f77d739b00494720062fd06e",
         "tabulate",
         "tqdm",
     ]
