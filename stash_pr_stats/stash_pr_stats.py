@@ -63,7 +63,7 @@ def get_monthly_merged(user, url, accesstoken, projectkey, pickled=False):
             repos = pickle.load(picklefile)
     else:
         repos = get_prs(url, user, accesstoken, projectkey)
-        with open(picklefilename, "w") as picklefile:
+        with open(picklefilename, "wb") as picklefile:
             pickle.dump(repos, picklefile)
 
     # consolidate data from each repo
