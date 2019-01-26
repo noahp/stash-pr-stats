@@ -41,13 +41,7 @@ setup(
     long_description_content_type="text/markdown",
     packages=["stash_pr_stats"],
     # need an unreleased version of stashy for token support
-    install_requires=[
-        "click",
-        "pygal",
-        "stashy @ git+https://github.com/noahp/stashy.git@f42707cb87fe7a50f77d739b00494720062fd06e",
-        "tabulate",
-        "tqdm",
-    ]
+    install_requires=["click", "pygal", "stashy==0.6", "tabulate", "tqdm"]
     + INSTALL_CONDITIONAL_REQUIRES,
     entry_points={
         "console_scripts": ["stash-pr-stats=stash_pr_stats.stash_pr_stats:main"]
