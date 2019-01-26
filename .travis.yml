@@ -3,5 +3,5 @@ language: python
 python:
   - "2.7"
   - "3.6"
-install: pip install tox-travis detox
+install: pip install tox-travis==0.11 detox==0.19 tox==3.6.1
 script: detox
